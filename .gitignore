@@ -1,4 +1,3 @@
 .env
 .prod.env
-node_module
-notes-api-web-server.pems
+node_modules
