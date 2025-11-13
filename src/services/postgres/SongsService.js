@@ -1,5 +1,5 @@
-const { nanoid } = require('nanoid');
 const { Pool } = require('pg');
+const { nanoid } = require('nanoid');
 const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
 const { mapDBToModelSong } = require('../../utils');
@@ -63,7 +63,7 @@ class SongsService {
     };
     const result = await this._pool.query(query);
     if (!result.rows.length) {
-      throw new NotFoundError('Song tidak ditemukan');
+      throw new NotFoundError('Lagu tidak ditemukan');
     }
     return mapDBToModelSong(result.rows[0]);
   }
@@ -93,7 +93,7 @@ class SongsService {
     const result = await this._pool.query(query);
 
     if (!result.rows.length) {
-      throw new NotFoundError('Song gagal dihapus. Id tidak ditemukan');
+      throw new NotFoundError('Lagu gagal dihapus. Id tidak ditemukan');
     }
   }
 }
