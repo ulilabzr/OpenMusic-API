@@ -1,6 +1,5 @@
-const ClientError = require("../../exceptions/ClientError");
 const autoBind = require('auto-bind');
-
+const ClientError = require('../../exceptions/ClientError');
 
 class UserHandler {
   constructor(service, validator) {
@@ -21,8 +20,8 @@ class UserHandler {
     });
 
     const response = h.response({
-      status: "success",
-      message: "User berhasil ditambahkan",
+      status: 'success',
+      message: 'User berhasil ditambahkan',
       data: {
         userId,
       },
@@ -37,7 +36,7 @@ class UserHandler {
     const user = await this._service.getUserById(id);
 
     return {
-      status: "success",
+      status: 'success',
       data: {
         user,
       },

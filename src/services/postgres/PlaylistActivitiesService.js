@@ -1,7 +1,7 @@
-const { Pool } = require("pg");
-const autoBind = require("auto-bind");
-const InvariantError = require("../../exceptions/InvariantError");
-const NotFoundError = require("../../exceptions/NotFoundError");
+const { Pool } = require('pg');
+const autoBind = require('auto-bind');
+const InvariantError = require('../../exceptions/InvariantError');
+const NotFoundError = require('../../exceptions/NotFoundError');
 
 class PlaylistActivitiesService {
   constructor() {
@@ -18,7 +18,7 @@ class PlaylistActivitiesService {
     };
     const result = await this._pool.query(query);
     if (!result.rows[0].id) {
-      throw new InvariantError("Aktivitas playlist gagal ditambahkan");
+      throw new InvariantError('Aktivitas playlist gagal ditambahkan');
     }
     return result.rows[0].id;
   }
@@ -38,4 +38,4 @@ class PlaylistActivitiesService {
   }
 }
 
-module.exports = PlaylistSongService;
+module.exports = PlaylistActivitiesService;

@@ -1,5 +1,5 @@
-const Joi = require("joi");
-const { password } = require("pg/lib/defaults");
+const Joi = require('joi');
+const { password } = require('pg/lib/defaults');
 
 const PostAuthenticationPayloadSchema = Joi.object({
   username: Joi.string().required(),
