@@ -1,46 +1,46 @@
-require("dotenv").config();
-const Hapi = require("@hapi/hapi");
-const Jwt = require("@hapi/jwt");
-const ClientError = require("./exceptions/ClientError");
+require('dotenv').config();
+const Hapi = require('@hapi/hapi');
+const Jwt = require('@hapi/jwt');
+const ClientError = require('./exceptions/ClientError');
 
 // albums
-const albums = require("./api/albums");
-const AlbumsValidator = require("./validator/albums");
-const AlbumsService = require("./services/postgres/AlbumsService");
+const albums = require('./api/albums');
+const AlbumsValidator = require('./validator/albums');
+const AlbumsService = require('./services/postgres/AlbumsService');
 
 // songs
-const songs = require("./api/songs");
-const SongsValidator = require("./validator/songs");
-const SongsService = require("./services/postgres/SongsService");
+const songs = require('./api/songs');
+const SongsValidator = require('./validator/songs');
+const SongsService = require('./services/postgres/SongsService');
 
 // users
-const users = require("./api/users");
-const UsersValidator = require("./validator/users");
-const UsersService = require("./services/postgres/UsersService");
+const users = require('./api/users');
+const UsersValidator = require('./validator/users');
+const UsersService = require('./services/postgres/UsersService');
 
 // authentications
-const TokenManager = require("./tokenize/TokenManager");
-const authentications = require("./api/authentications");
-const AuthenticationsValidator = require("./validator/authentications");
-const AuthenticationsService = require("./services/postgres/AuthenticationsService");
+const TokenManager = require('./tokenize/TokenManager');
+const authentications = require('./api/authentications');
+const AuthenticationsValidator = require('./validator/authentications');
+const AuthenticationsService = require('./services/postgres/AuthenticationsService');
 
 // playlists
-const playlists = require("./api/playlists");
-const PlaylistsValidator = require("./validator/playlists");
-const PlaylistsService = require("./services/postgres/PlaylistsService");
+const playlists = require('./api/playlists');
+const PlaylistsValidator = require('./validator/playlists');
+const PlaylistsService = require('./services/postgres/PlaylistsService');
 
 // playlistActivities
-const playlistActivities = require("./api/playlistActivities");
-const PlaylistActivitiesService = require("./services/postgres/PlaylistActivitiesService");
+const playlistActivities = require('./api/playlistActivities');
+const PlaylistActivitiesService = require('./services/postgres/PlaylistActivitiesService');
 
 // playlistSongs
-const playlistSongs = require("./api/playlistSongs");
-const PlaylistSongsService = require("./services/postgres/PlaylistSongsService");
+const playlistSongs = require('./api/playlistSongs');
+const PlaylistSongsService = require('./services/postgres/PlaylistSongsService');
 
 // collaborations
-const collaborations = require("./api/collaborations");
-const CollaborationsValidator = require("./validator/collaborations");
-const CollaborationsService = require("./services/postgres/CollaborationsService");
+const collaborations = require('./api/collaborations');
+const CollaborationsValidator = require('./validator/collaborations');
+const CollaborationsService = require('./services/postgres/CollaborationsService');
 
 const init = async () => {
   const songsService = new SongsService();
@@ -54,17 +54,17 @@ const init = async () => {
 
   const server = Hapi.server({
     port: process.env.PORT || 5000,
-    host: process.env.HOST || "localhost",
+    host: process.env.HOST || 'localhost',
     routes: {
       cors: {
-        origin: ["*"],
+        origin: ['*'],
       },
     },
   });
 
   await server.register([{ plugin: Jwt }]);
 
-  server.auth.strategy("openmusic_jwt", "jwt", {
+  server.auth.strategy('openmusic_jwt', 'jwt', {
     keys: process.env.ACCESS_TOKEN_KEY,
     verify: {
       aud: false,
@@ -75,7 +75,7 @@ const init = async () => {
     validate: (artifacts) => ({
       isValid: true,
       credentials: {
-        id: artifacts.decoded.payload.id,
+        id: artifacts.decoded.payload.userId,
       },
     }),
   });
@@ -145,21 +145,35 @@ const init = async () => {
     },
   ]);
 
-  console.log("--- Registered routes ---");
+  console.log('--- Registered routes ---');
   server.table().forEach((route) => {
     console.log(`${route.method.toUpperCase()} ${route.path}`);
   });
-  console.log("--- End routes ---");
+  console.log('--- End routes ---');
 
-  server.ext("onPreResponse", (request, h) => {
+  server.ext('onPreResponse', (request, h) => {
     const { response } = request;
 
-    if (response instanceof ClientError) {
+    if (response instanceof Error) {
+      if (response instanceof ClientError) {
+        const newResponse = h.response({
+          status: 'fail',
+          message: response.message,
+        });
+        newResponse.code(response.statusCode);
+        return newResponse;
+      }
+
+      if (!response.isServer) {
+        return h.continue;
+      }
+
       const newResponse = h.response({
-        status: "fail",
-        message: response.message,
+        status: 'error',
+        message: 'Maaf, terjadi kegagalan pada server kami.',
       });
-      newResponse.code(response.statusCode);
+      newResponse.code(500);
+      console.error(response);
       return newResponse;
     }
 

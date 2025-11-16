@@ -1,6 +1,7 @@
-const { Pool } = require("pg");
-const autoBind = require("auto-bind");
-const NotFoundError = require("../../exceptions/NotFoundError");
+const { Pool } = require('pg');
+const { nanoid } = require('nanoid');
+const autoBind = require('auto-bind');
+const NotFoundError = require('../../exceptions/NotFoundError');
 
 class PlaylistSongsService {
   constructor() {
@@ -9,9 +10,10 @@ class PlaylistSongsService {
   }
 
   async addSongToPlaylist(playlistId, songId) {
+    const id = `playlistsong-${nanoid(16)}`;
     const query = {
-      text: "INSERT INTO playlist_songs (playlist_id, song_id) VALUES($1, $2) RETURNING id",
-      values: [playlistId, songId],
+      text: 'INSERT INTO playlist_songs (id, playlist_id, song_id) VALUES($1, $2, $3) RETURNING id',
+      values: [id, playlistId, songId],
     };
 
     const result = await this._pool.query(query);
@@ -35,14 +37,14 @@ class PlaylistSongsService {
 
   async removeSongFromPlaylist(playlistId, songId) {
     const query = {
-      text: "DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2 RETURNING id",
+      text: 'DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2 RETURNING id',
       values: [playlistId, songId],
     };
 
     const result = await this._pool.query(query);
 
     if (!result.rows.length) {
-      throw new NotFoundError("Lagu tidak ditemukan di playlist");
+      throw new NotFoundError('Lagu tidak ditemukan di playlist');
     }
 
     return result.rows[0].id;
@@ -50,14 +52,14 @@ class PlaylistSongsService {
 
   async verifySongExists(songId) {
     const query = {
-      text: "SELECT id FROM songs WHERE id = $1",
+      text: 'SELECT id FROM songs WHERE id = $1',
       values: [songId],
     };
 
     const result = await this._pool.query(query);
 
     if (!result.rows.length) {
-      throw new NotFoundError("Song tidak ditemukan");
+      throw new NotFoundError('Song tidak ditemukan');
     }
   }
 }

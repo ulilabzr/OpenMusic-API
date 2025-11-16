@@ -1,11 +1,11 @@
-const autoBind = require("auto-bind");
+const autoBind = require('auto-bind');
 
 class PlaylistSongsHandler {
   constructor(
     playlistsService,
     playlistSongsService,
     activitiesService,
-    validator
+    validator,
   ) {
     this._playlistsService = playlistsService;
     this._playlistSongsService = playlistSongsService;
@@ -36,12 +36,12 @@ class PlaylistSongsHandler {
       playlistId,
       songId,
       credentialId,
-      "add"
+      'add',
     );
 
     const response = h.response({
-      status: "success",
-      message: "Lagu berhasil ditambahkan ke playlist",
+      status: 'success',
+      message: 'Lagu berhasil ditambahkan ke playlist',
     });
     response.code(201);
     return response;
@@ -55,16 +55,21 @@ class PlaylistSongsHandler {
     // cek akses playlist
     await this._playlistsService.verifyPlaylistAccess(playlistId, credentialId);
 
+    // ambil detail playlist (termasuk name dan username)
+    const playlist = await this._playlistsService.getPlaylistDetails(playlistId);
+
     // ambil lagu dari playlist (service khusus)
     const songs = await this._playlistSongsService.getSongsFromPlaylist(
-      playlistId
+      playlistId,
     );
 
     return {
-      status: "success",
+      status: 'success',
       data: {
         playlist: {
-          id: playlistId,
+          id: playlist.id,
+          name: playlist.name,
+          username: playlist.username,
           songs,
         },
       },
@@ -93,12 +98,12 @@ class PlaylistSongsHandler {
       playlistId,
       songId,
       credentialId,
-      "delete"
+      'delete',
     );
 
     return h.response({
-      status: "success",
-      message: "Lagu berhasil dihapus dari playlist",
+      status: 'success',
+      message: 'Lagu berhasil dihapus dari playlist',
     });
   }
 }
