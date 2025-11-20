@@ -1,8 +1,8 @@
 module.exports = (handler) => [
   {
     method: 'POST',
-    path: '/export/notes',
-    handler: handler.postExportNotesHandler,
+    path: '/export/playlists/{playlistId}',
+    handler: handler.postExportPlaylistsHandler,
     options: {
       auth: 'openmusic_jwt',
     },

@@ -1,25 +1,26 @@
-const autoBind = require('auto-bind');
+const ClientError = require('../../exceptions/ClientError');
 
 class ExportsHandler {
   constructor(service, validator) {
     this._service = service;
     this._validator = validator;
-    autoBind(this);
+    
+    this.postExportPlaylistsHandler = this.postExportPlaylistsHandler.bind(this);
   }
 
-  async postExportNotesHandler(request, h) {
-    this._validator.validateExportNotesPayload(request.payload);
-    const { targetEmail } = request.payload;
-    const { id: credentialId } = request.auth.credentials;
+  async postExportPlaylistsHandler(request, h) {
+    this._validator.validateExportPlaylistsPayload(request.payload);
 
-    await this._service.enqueueExport({
-      userId: credentialId,
-      targetEmail,
-    });
+    const message = {
+      userId: request.auth.credentials.id,
+      targetEmail: request.payload.targetEmail,
+    };
+
+    await this._service.sendMessage('export:playlists', JSON.stringify(message));
 
     const response = h.response({
       status: 'success',
-      message: 'Permintaan Anda dalam antrean',
+      message: 'Permintaan Anda sedang kami proses',
     });
     response.code(201);
     return response;

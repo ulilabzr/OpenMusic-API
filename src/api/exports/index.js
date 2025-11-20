@@ -9,4 +9,3 @@ module.exports = {
     server.route(routes(exportsHandler));
   },
 };
-

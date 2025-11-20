@@ -6,6 +6,7 @@ const NotFoundError = require('../../exceptions/NotFoundError');
 class CollaborationsService {
   constructor() {
     this._pool = new Pool();
+    this._cacheService = cacheService;
   }
 
   async addCollaboration(playlistId, userId) {
@@ -23,6 +24,8 @@ class CollaborationsService {
     if (!result.rows.length) {
       throw new InvariantError('Kolaborasi gagal ditambahkan');
     }
+
+    await this._cacheService.delete(`playlists:${userId}`);
     return result.rows[0].id;
   }
 
@@ -48,8 +51,10 @@ class CollaborationsService {
     const result = await this._pool.query(query);
 
     if (!result.rows.length) {
-      throw new NotFoundError('Kolaborasi gagal dihapus. Id tidak ditemukan');
+      throw new NotFoundError('Kolaborasi gagal dihapus.');
     }
+
+    await this._cacheService.delete(`playlists:${userId}`);
   }
 
   async verifyCollaborator(playlistId, userId) {
