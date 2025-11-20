@@ -5,7 +5,7 @@ class CollaborationsHandler {
     this._service = service;
     this._playlistsService = playlistsService;
     this._validator = validator;
-    autoBind(this);
+    x
   }
 
   async postCollaborationHandler(request, h) {
