@@ -4,13 +4,13 @@ const autoBind = require("auto-bind");
 const InvariantError = require("../../exceptions/InvariantError");
 const NotFoundError = require("../../exceptions/NotFoundError");
 const AuthorizationError = require("../../exceptions/AuthorizationError");
-
+const CollaborationsService = require('./CollaborationsService')
 class PlaylistsService {
-  constructor() {
+  constructor(collaborationService, cacheService) {
     this._pool = new Pool();
-    autoBind(this);
-    this._collaborationService = collaborationService;
+    this._collaborationService = new CollaborationsService();
     this._cacheService = cacheService;
+    autoBind(this);
   }
 
   async addPlaylist({ name, owner }) {
@@ -62,34 +62,20 @@ class PlaylistsService {
   }
 
   async verifyPlaylistAccess(playlistId, userId) {
-    // cek dulu apakah playlist ada
-    const queryPlaylist = {
-      text: "SELECT id, owner FROM playlists WHERE id = $1",
-      values: [playlistId],
-    };
-
-    const playlistResult = await this._pool.query(queryPlaylist);
-
-    if (!playlistResult.rowCount) {
-      throw new NotFoundError("Playlist tidak ditemukan");
-    }
-
-    const playlist = playlistResult.rows[0];
-
-    // jika owner benar, akses ok
-    if (playlist.owner === userId) return;
-
-    // jika bukan owner, cek kolaborator
-    const collabQuery = {
-      text: `SELECT id FROM collaborations
-           WHERE playlist_id = $1 AND user_id = $2`,
-      values: [playlistId, userId],
-    };
-
-    const collabResult = await this._pool.query(collabQuery);
-
-    if (!collabResult.rowCount) {
-      throw new AuthorizationError("Anda tidak berhak mengakses playlist ini");
+    try {
+      await this.verifyPlaylistOwner(playlistId, userId);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      try {
+        await this._collaborationService.verifyCollaborator(
+          playlistId,
+          userId
+        );
+      } catch {
+        throw error;
+      }
     }
   }
 

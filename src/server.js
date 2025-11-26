@@ -1,18 +1,22 @@
+// src/server.js
 require("dotenv").config();
-const path = require("path");
-const Jwt = require("@hapi/jwt");
-const Hapi = require("@hapi/hapi");
-const ClientError = require("./exceptions/ClientError");
 
-// albums
-const albums = require("./api/albums");
-const AlbumsValidator = require("./validator/albums");
-const AlbumsService = require("./services/postgres/AlbumsService");
+const path = require("path");
+const Hapi = require("@hapi/hapi");
+const Jwt = require("@hapi/jwt");
+const Inert = require("@hapi/inert");
+
+const ClientError = require("./exceptions/ClientError");
 
 // songs
 const songs = require("./api/songs");
 const SongsValidator = require("./validator/songs");
 const SongsService = require("./services/postgres/SongsService");
+
+// albums
+const albums = require("./api/albums");
+const AlbumsValidator = require("./validator/albums");
+const AlbumsService = require("./services/postgres/AlbumsService");
 
 // users
 const users = require("./api/users");
@@ -43,29 +47,32 @@ const collaborations = require("./api/collaborations");
 const CollaborationsValidator = require("./validator/collaborations");
 const CollaborationsService = require("./services/postgres/CollaborationsService");
 
-// exports
-const _exports = require("./api/exports");
-const ExportsValidator = require("./validator/exports");
-const ProducerService = require("./services/rabbitmq/ProducerService");
-
 // uploads
 const uploads = require("./api/uploads");
 const UploadsValidator = require("./validator/uploads");
 const StorageService = require("./services/storage/StorageService");
 
+// exports
+const _exports = require("./api/exports");
+const ExportsValidator = require("./validator/exports");
+const ProducerService = require("./services/rabbitmq/ProducerService");
+
 // cache
-const CacheService = require('./services/redis/CacheService');
+const CacheService = require("./services/redis/CacheService");
 
 const init = async () => {
   const songsService = new SongsService();
+  const albumsService = new AlbumsService();
   const usersService = new UsersService();
   const cacheService = new CacheService();
-  const albumsService = new AlbumsService();
   const playlistSongsService = new PlaylistSongsService();
   const collaborationsService = new CollaborationsService(cacheService);
-  const playlistActivitiesService = new PlaylistActivitiesService();
-  const playlistsService = new PlaylistsService(collaborationsService, cacheService);
+  const playlistsService = new PlaylistsService(
+    collaborationsService,
+    cacheService
+  );
   const authenticationsService = new AuthenticationsService();
+  const playlistActivitiesService = new PlaylistActivitiesService();
   const storageService = new StorageService(
     path.resolve(__dirname, "api/uploads/file/images")
   );
@@ -81,7 +88,9 @@ const init = async () => {
   });
 
   await server.register([
-    { plugin: Jwt },
+    {
+      plugin: Jwt,
+    },
     {
       plugin: Inert,
     },
@@ -98,19 +107,12 @@ const init = async () => {
     validate: (artifacts) => ({
       isValid: true,
       credentials: {
-        id: artifacts.decoded.payload.userId,
+        id: artifacts.decoded.payload.id,
       },
     }),
   });
 
   await server.register([
-    {
-      plugin: albums,
-      options: {
-        service: albumsService,
-        validator: AlbumsValidator,
-      },
-    },
     {
       plugin: songs,
       options: {
@@ -118,6 +120,14 @@ const init = async () => {
         validator: SongsValidator,
       },
     },
+    {
+      plugin: albums,
+      options: {
+        service: albumsService,
+        validator: AlbumsValidator,
+      },
+    },
+
     {
       plugin: users,
       options: {
@@ -143,17 +153,19 @@ const init = async () => {
       },
     },
     {
-      plugin: _exports,
-      options: {
-        service: ProducerService,
-        validator: ExportsValidator,
-      },
-    },
-    {
       plugin: playlistActivities,
       options: {
         playlistsService,
         playlistActivitiesService,
+      },
+    },
+    {
+      plugin: playlistSongs,
+      options: {
+        playlistsService,
+        playlistSongsService,
+        activitiesService: playlistActivitiesService,
+        validator: PlaylistsValidator,
       },
     },
     {
@@ -165,12 +177,10 @@ const init = async () => {
       },
     },
     {
-      plugin: playlistSongs,
+      plugin: _exports,
       options: {
-        playlistsService,
-        playlistSongsService,
-        activitiesService: playlistActivitiesService,
-        validator: PlaylistsValidator,
+        service: ProducerService,
+        validator: ExportsValidator,
       },
     },
     {

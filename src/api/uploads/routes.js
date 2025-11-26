@@ -1,25 +1,27 @@
+const { request } = require("http");
+const path = require("path");
+
 const routes = (handler) => [
   {
-    method: "POST",
-    path: "/upload/images",
-    handler: handler.postUploadImageHandler,
+    method: 'POST',
+    path: '/upload/images',
+    handler: (request, h) => handler.postUploadImageHandler(request, h),
     options: {
       payload: {
-        allow: "multipart/form-data",
+        allow: 'multipart/form-data',
         multipart: true,
-        output: "stream",
+        output: 'stream',
       },
     },
-  },
-  {
-    method: "GET",
-    path: "/upload/{param*}",
+  },{
+    method: 'GET',
+    path: '/upload/images/{filename}',
     handler: {
       directory: {
-        path: path.resolve(__dirname, "file"),
+        path: path.resolve(__dirname, 'file/images'),
       },
     },
   },
 ];
-
+ 
 module.exports = routes;

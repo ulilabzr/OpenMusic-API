@@ -1,4 +1,5 @@
 module.exports = (handler) => [
+  // Albums routes
   {
     method: 'POST',
     path: '/albums',
@@ -18,5 +19,27 @@ module.exports = (handler) => [
     method: 'DELETE',
     path: '/albums/{id}',
     handler: (request, h) => handler.deleteAlbumByIdHandler(request, h),
+  },
+  // Cover upload route
+  {
+    method: 'POST',
+    path: '/albums/{id}/covers',
+    handler: (request, h) => handler.postAlbumCoverByIdHandler(request, h),
+  },
+  // Likes routes
+  {
+    method: 'POST',
+    path: '/albums/{id}/likes',
+    handler: (request, h) => handler.postAlbumLikeByIdHandler(request, h),
+  },
+  {
+    method: 'DELETE',
+    path: '/albums/{id}/likes',
+    handler: (request, h) => handler.deleteAlbumLikeByIdHandler(request, h),
+  },
+  {
+    method: 'GET',
+    path: '/albums/{id}/likes',
+    handler: (request, h) => handler.getAlbumLikeByIdHandler(request, h),
   },
 ];

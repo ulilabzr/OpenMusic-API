@@ -48,7 +48,6 @@ class PlaylistSongsHandler {
   }
 
   async getPlaylistSongsHandler(request) {
-    // GET tidak punya payload -> jangan validasi payload di sini
     const { id: playlistId } = request.params;
     const { id: credentialId } = request.auth.credentials;
 
