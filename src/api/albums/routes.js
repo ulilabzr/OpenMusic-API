@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = (handler) => [
   // Albums routes
   {
@@ -25,6 +27,25 @@ module.exports = (handler) => [
     method: 'POST',
     path: '/albums/{id}/covers',
     handler: (request, h) => handler.postAlbumCoverByIdHandler(request, h),
+    options: {
+      payload: {
+        allow: 'multipart/form-data',
+        multipart: true,
+        output: 'stream',
+        maxBytes: 512000, // 500KB limit
+      },
+    },
+  },
+  // Cover serve route - must be before likes routes to avoid conflict
+  {
+    method: 'GET',
+    path: '/albums/{id}/cover/{filename}',
+    handler: {
+      file: (request) => {
+        const filename = request.params.filename;
+        return path.resolve(__dirname, '../uploads/file/images', filename);
+      },
+    },
   },
   // Likes routes
   {

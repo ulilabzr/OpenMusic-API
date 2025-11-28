@@ -107,7 +107,7 @@ const init = async () => {
     validate: (artifacts) => ({
       isValid: true,
       credentials: {
-        id: artifacts.decoded.payload.id,
+        id: artifacts.decoded.payload.userId,
       },
     }),
   });
@@ -124,6 +124,7 @@ const init = async () => {
       plugin: albums,
       options: {
         service: albumsService,
+        storageService,
         validator: AlbumsValidator,
       },
     },
@@ -179,7 +180,8 @@ const init = async () => {
     {
       plugin: _exports,
       options: {
-        service: ProducerService,
+        producerService: ProducerService,
+        playlistsService,
         validator: ExportsValidator,
       },
     },
@@ -201,13 +203,26 @@ const init = async () => {
   server.ext("onPreResponse", (request, h) => {
     const { response } = request;
 
+    // Handle errors
     if (response instanceof Error) {
       if (response instanceof ClientError) {
         const newResponse = h.response({
           status: "fail",
           message: response.message,
         });
-        newResponse.code(response.statusCode);
+        const statusCode = response.statusCode || 400;
+        newResponse.code(statusCode);
+        return newResponse;
+      }
+
+      // Handle Boom errors (e.g., 413 for payload too large, 401 for authentication, 404 for not found)
+      if (response.isBoom) {
+        const statusCode = (response.output && response.output.statusCode) || 500;
+        const newResponse = h.response({
+          status: statusCode >= 400 && statusCode < 500 ? "fail" : "error",
+          message: response.message || "Terjadi kesalahan",
+        });
+        newResponse.code(statusCode);
         return newResponse;
       }
 
@@ -222,6 +237,14 @@ const init = async () => {
       newResponse.code(500);
       console.error(response);
       return newResponse;
+    }
+
+    // Handle non-error responses - ensure they have proper structure
+    if (response && typeof response === 'object') {
+      // If it's a response object with code method but no statusCode, set default
+      if (typeof response.code === 'function' && (response.statusCode === undefined || response.statusCode === null)) {
+        response.code(200);
+      }
     }
 
     return h.continue;

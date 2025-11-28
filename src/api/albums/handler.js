@@ -1,8 +1,10 @@
 const autoBind = require("auto-bind");
+const InvariantError = require("../../exceptions/InvariantError");
 
 class AlbumsHandler {
-  constructor(service, validator) {
+  constructor(service, storageService, validator) {
     this._service = service;
+    this._storageService = storageService;
     this._validator = validator;
 
     autoBind(this);
@@ -64,13 +66,21 @@ class AlbumsHandler {
 
   async postAlbumCoverByIdHandler(request, h) {
     const { id } = request.params;
-    const { data } = request.payload;
-    this._validator.validateImageHeaders(data.hapi.headers);
-    const cover = await this._service.uploadAlbumCover(id, data);
+    const { cover } = request.payload || {};
+    
+    if (!cover) {
+      throw new InvariantError("File tidak ditemukan");
+    }
+    
+    this._validator.validateImageHeaders(cover.hapi.headers);
+    const filename = await this._storageService.writeFile(cover, cover.hapi);
+    const coverUrl = `http://${process.env.HOST}:${process.env.PORT}/albums/${id}/cover/${filename}`;
+    await this._service.updateAlbumCover(id, coverUrl);
+    
     const response = h.response({
       status: "success",
       message: "Cover album berhasil diunggah",
-      data: { cover },
+      data: { cover: coverUrl },
     });
     response.code(201);
     return response;
@@ -114,6 +124,7 @@ class AlbumsHandler {
         likes,
       },
     });
+    response.code(200);
     
     // Set header hanya jika data berasal dari cache
     if (fromCache) {

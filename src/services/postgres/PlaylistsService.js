@@ -27,7 +27,7 @@ class PlaylistsService {
       throw new InvariantError("Playlist gagal ditambahkan");
     }
 
-    await this._cacheDelete(`playlists:${owner}`);
+    await this._cacheService.delete(`playlists:${owner}`);
     return result.rows[0].id;
   }
 
@@ -65,23 +65,50 @@ class PlaylistsService {
     }
   }
 
+  async getPlaylistById(playlistId) {
+    const query = {
+      text: `SELECT playlists.id, playlists.name, users.username
+            FROM playlists
+            JOIN users ON playlists.owner = users.id
+            WHERE playlists.id = $1`,
+      values: [playlistId],
+    };
+    const result = await this._pool.query(query);
+    if (!result.rows.length) {
+      return null;
+    }
+    return result.rows[0];
+  }
+
   async verifyPlaylistAccess(playlistId, userId) {
+    // First, verify the playlist exists
+    const query = {
+      text: "SELECT owner FROM playlists WHERE id = $1",
+      values: [playlistId],
+    };
+
+    const result = await this._pool.query(query);
+
+    if (!result.rows.length) {
+      throw new NotFoundError("Playlist tidak ditemukan");
+    }
+
+    const playlist = result.rows[0];
+
+    // Check if user is the owner
+    if (playlist.owner === userId) {
+      return;
+    }
+
+    // Check if user is a collaborator
+    if (!this._collaborationService || typeof this._collaborationService.verifyCollaborator !== "function") {
+      throw new AuthorizationError("Anda tidak berhak mengakses resource ini");
+    }
+
     try {
-      await this.verifyPlaylistOwner(playlistId, userId);
+      await this._collaborationService.verifyCollaborator(playlistId, userId);
     } catch (error) {
-      if (error instanceof NotFoundError) {
-        throw error;
-      }
-      try {
-        if (!this._collaborationService || typeof this._collaborationService.verifyCollaborator !== "function") {
-          throw new AuthorizationError("Anda tidak berhak mengakses resource ini");
-        }
-        await this._collaborationService.verifyCollaborator(playlistId, userId);
-      } catch (err) {
-        // prefer AuthorizationError if collaborator check fails, else rethrow original
-        if (err instanceof AuthorizationError) throw err;
-        throw error;
-      }
+      throw new AuthorizationError("Anda tidak berhak mengakses resource ini");
     }
   }
 
@@ -153,7 +180,7 @@ class PlaylistsService {
       };
       const res = await this._pool.query(ownerQ);
       if (res.rows.length) {
-        await this._cacheDelete(`playlists:${res.rows[0].owner}`);
+        await this._cacheService.delete(`playlists:${res.rows[0].owner}`);
       }
     } catch {
       // ignore cache invalidation errors

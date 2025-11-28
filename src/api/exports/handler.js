@@ -1,39 +1,32 @@
 const autoBind = require("auto-bind");
+const NotFoundError = require("../../exceptions/NotFoundError");
+const AuthorizationError = require("../../exceptions/AuthorizationError");
+const PlaylistsService = require("../../services/postgres/PlaylistsService");
 
 class ExportsHandler {
-  constructor(service, validator) {
+  constructor(service, playlistsService, validator) {
     this._service = service;
+    this._playlistsService = playlistsService;
     this._validator = validator;
 
     autoBind(this);
   }
-
   async postExportPlaylistsHandler(request, h) {
+    this._validator.validateExportPlaylistsPayload(request.payload);
     const { playlistId } = request.params;
     const { targetEmail } = request.payload;
-    const { id: userId } = request.auth.credentials;
+    const { id: credentialId } = request.auth.credentials;
 
-    const playlist = await this._playlistsService.getPlaylistById(playlistId);
-
-    if (!playlist) {
-      throw new NotFoundError("Playlist tidak ditemukan");
-    }
-
-    if (playlist.owner !== userId) {
-      throw new AuthorizationError("Anda bukan pemilik playlist ini");
-    }
-    try {
-      await this._service.sendMessage(
-        "export:playlists",
-        JSON.stringify({ playlistId, targetEmail })
-      );
-    } catch (err) {
-      console.error("Failed to send export message", err);
-      throw new Error("Gagal memproses permintaan ekspor");
-    }
+    await this._playlistsService.verifyPlaylistAccess(playlistId, credentialId);
+    
+    await this._service.sendMessage(
+      "export:playlists",
+      JSON.stringify({ playlistId, targetEmail })
+    );
+    
     const response = h.response({
       status: "success",
-      message: "Permintaan Anda sedang kami proses",
+      message: "Permintaan Anda dalam antrean",
     });
     response.code(201);
     return response;

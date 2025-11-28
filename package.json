@@ -1,7 +1,7 @@
 {
   "name": "openmusic",
   "version": "1.0.0",
-  "description": "",
+  "description": "��#\u0000 \u0000O\u0000p\u0000e\u0000n\u0000m\u0000u\u0000s\u0000i\u0000c\u0000-\u0000A\u0000P\u0000I\u0000\r\u0000 \u0000",
   "main": "index.js",
   "scripts": {
     "start:prod": "NODE_ENV=production node ./src/server.js",
@@ -36,5 +36,13 @@
     "eslint-plugin-react": "^7.37.5",
     "globals": "^16.5.0",
     "nodemon": "^3.1.10"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ulilabzr/OpenMusic-API.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ulilabzr/OpenMusic-API/issues"
+  },
+  "homepage": "https://github.com/ulilabzr/OpenMusic-API#readme"
 }

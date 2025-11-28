@@ -41,7 +41,7 @@ class AlbumService {
 
   async getAlbumById(id) {
     const albumQuery = {
-      text: "SELECT id, name, year FROM albums WHERE id = $1",
+      text: "SELECT id, name, year, cover FROM albums WHERE id = $1",
       values: [id],
     };
     const albumResult = await this._pool.query(albumQuery);
@@ -50,6 +50,9 @@ class AlbumService {
     }
 
     const album = albumResult.rows[0];
+    // Map cover to coverUrl and ensure it's null if not set
+    album.coverUrl = album.cover || null;
+    delete album.cover;
 
     const songsQuery = {
       text: "SELECT id, title, performer FROM songs WHERE album_id = $1",
@@ -96,6 +99,17 @@ class AlbumService {
       throw new NotFoundError("Album tidak ditemukan");
     }
     return data;
+  }
+
+  async updateAlbumCover(id, cover) {
+    const query = {
+      text: "UPDATE albums SET cover = $1 WHERE id = $2 RETURNING id",
+      values: [cover, id],
+    };
+    const result = await this._pool.query(query);
+    if (!result.rows.length) {
+      throw new NotFoundError("Album tidak ditemukan");
+    }
   }
 
   async addAlbumLikesById(albumId, userId) {
