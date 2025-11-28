@@ -1,34 +1,39 @@
-const autoBind = require('auto-bind');
+const autoBind = require("auto-bind");
 
 class ExportsHandler {
-  constructor(producerService, playlistsService, validator) {
-    this._producerService = producerService;
-    this._playlistsService = playlistsService;
+  constructor(service, validator) {
+    this._service = service;
     this._validator = validator;
 
     autoBind(this);
   }
 
   async postExportPlaylistsHandler(request, h) {
-    this._validator.validateExportPlaylistsPayload(request.payload);
     const { playlistId } = request.params;
-    const { id: credentialId } = request.auth.credentials;
     const { targetEmail } = request.payload;
+    const { id: userId } = request.auth.credentials;
 
-    // Verifikasi pemilik playlist
-    await this._playlistsService.verifyPlaylistOwner(playlistId, credentialId);
+    const playlist = await this._playlistsService.getPlaylistById(playlistId);
 
-    // Kirim pesan ke RabbitMQ dengan minimal data: playlistId dan targetEmail
-    const message = JSON.stringify({
-      playlistId,
-      targetEmail,
-    });
-    await this._producerService.sendMessage('export:playlists', message);
+    if (!playlist) {
+      throw new NotFoundError("Playlist tidak ditemukan");
+    }
 
-    // Return response 201
+    if (playlist.owner !== userId) {
+      throw new AuthorizationError("Anda bukan pemilik playlist ini");
+    }
+    try {
+      await this._service.sendMessage(
+        "export:playlists",
+        JSON.stringify({ playlistId, targetEmail })
+      );
+    } catch (err) {
+      console.error("Failed to send export message", err);
+      throw new Error("Gagal memproses permintaan ekspor");
+    }
     const response = h.response({
-      status: 'success',
-      message: 'Permintaan Anda sedang kami proses',
+      status: "success",
+      message: "Permintaan Anda sedang kami proses",
     });
     response.code(201);
     return response;
@@ -36,4 +41,3 @@ class ExportsHandler {
 }
 
 module.exports = ExportsHandler;
-

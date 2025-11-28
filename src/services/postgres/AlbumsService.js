@@ -3,11 +3,11 @@ const { Pool } = require("pg");
 const InvariantError = require("../../exceptions/InvariantError");
 const { mapDBToModelAlbum } = require("../../utils/index");
 const NotFoundError = require("../../exceptions/NotFoundError");
-const CollaborationsService = require('./CollaborationsService')
-const cacheService = require("../redis/CacheService");
+const CollaborationsService = require('./CollaborationsService');
+const ClientError = require("../../exceptions/ClientError");
 
 class AlbumService {
-  constructor() {
+  constructor(cacheService) {
     this._pool = new Pool();
     this._collaborationService = new CollaborationsService();
     this._cacheService = cacheService;
@@ -98,37 +98,97 @@ class AlbumService {
     return data;
   }
 
-  async addAlbumLikesById(id, userId) {
+  async addAlbumLikesById(albumId, userId) {
+    // Cek album ada
+    const albumCheck = {
+      text: "SELECT id FROM albums WHERE id = $1",
+      values: [albumId],
+    };
+    const albumResult = await this._pool.query(albumCheck);
+    if (!albumResult.rows.length) {
+      throw new NotFoundError("Album tidak ditemukan");
+    }
+
+    // Cek apakah user sudah like album ini
+    const checkLike = {
+      text: "SELECT id FROM user_album_likes WHERE album_id = $1 AND user_id = $2",
+      values: [albumId, userId],
+    };
+    const likeResult = await this._pool.query(checkLike);
+    if (likeResult.rows.length > 0) {
+      throw new ClientError("Anda sudah menyukai album ini", 400);
+    }
+
+    // Insert like
+    const id = `like-${nanoid(16)}`;
     const query = {
-      text: "INSERT INTO album_likes (album_id, user_id) VALUES($1, $2) RETURNING id",
-      values: [id, userId],
+      text: "INSERT INTO user_album_likes (id, album_id, user_id) VALUES($1, $2, $3) RETURNING id",
+      values: [id, albumId, userId],
     };
     const result = await this._pool.query(query);
     if (!result.rows.length) {
       throw new InvariantError("Like album gagal ditambahkan");
     }
+
+    // Invalidate cache
+    await this._cacheService.delete(`album:${albumId}:likes`).catch(() => {
+      // Ignore cache error
+    });
+
     return result.rows[0].id;
   }
 
   async deleteAlbumLikesById(albumId, userId) {
     const query = {
-      text: "DELETE FROM album_likes WHERE album_id = $1 AND user_id = $2 RETURNING id",
+      text: "DELETE FROM user_album_likes WHERE album_id = $1 AND user_id = $2 RETURNING id",
       values: [albumId, userId],
     };
     const result = await this._pool.query(query);
     if (!result.rows.length) {
       throw new NotFoundError("Like album gagal dihapus. Id tidak ditemukan");
     }
+
+    // Invalidate cache
+    await this._cacheService.delete(`album:${albumId}:likes`).catch(() => {
+      // Ignore cache error
+    });
+
     return result.rows[0].id;
   }
 
-  async getAlbumLikesById(id) {
-    const query = {
-      text: "SELECT COUNT(*) FROM album_likes WHERE album_id = $1",
-      values: [id],
+  async getAlbumLikesById(albumId) {
+    // Cek album ada
+    const albumCheck = {
+      text: "SELECT id FROM albums WHERE id = $1",
+      values: [albumId],
     };
-    const result = await this._pool.query(query);
-    return result.rows[0].count;
+    const albumResult = await this._pool.query(albumCheck);
+    if (!albumResult.rows.length) {
+      throw new NotFoundError("Album tidak ditemukan");
+    }
+
+    const cacheKey = `album:${albumId}:likes`;
+
+    // Coba ambil dari cache
+    try {
+      const cachedLikes = await this._cacheService.get(cacheKey);
+      return { likes: Number(cachedLikes), fromCache: true };
+    } catch (error) {
+      // Cache miss, query dari database
+      const query = {
+        text: "SELECT COUNT(*) FROM user_album_likes WHERE album_id = $1",
+        values: [albumId],
+      };
+      const result = await this._pool.query(query);
+      const likes = result.rows[0].count;
+
+      // Simpan ke cache dengan TTL 30 menit (1800 detik)
+      await this._cacheService.set(cacheKey, likes, 1800).catch(() => {
+        // Ignore cache error
+      });
+
+      return { likes: Number(likes), fromCache: false };
+    }
   }
 
   async verifyAlbumOwner(id, owner) {

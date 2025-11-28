@@ -4,11 +4,11 @@ const autoBind = require("auto-bind");
 const InvariantError = require("../../exceptions/InvariantError");
 const NotFoundError = require("../../exceptions/NotFoundError");
 const AuthorizationError = require("../../exceptions/AuthorizationError");
-const CollaborationsService = require('./CollaborationsService')
+
 class PlaylistsService {
   constructor(collaborationService, cacheService) {
     this._pool = new Pool();
-    this._collaborationService = new CollaborationsService();
+    this._collaborationService = collaborationService;
     this._cacheService = cacheService;
     autoBind(this);
   }
@@ -23,11 +23,11 @@ class PlaylistsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows[0].id) {
+    if (!result.rows || !result.rows[0] || !result.rows[0].id) {
       throw new InvariantError("Playlist gagal ditambahkan");
     }
 
-    await this._cacheService.delete(`playlists:${owner}`);
+    await this._cacheDelete(`playlists:${owner}`);
     return result.rows[0].id;
   }
 
@@ -51,7 +51,11 @@ class PlaylistsService {
       };
 
       const result = await this._pool.query(query);
-      const mappedResult = result.rows.map(mapDBToModel);
+      const mappedResult = result.rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        username: r.username,
+      }));
       await this._cacheService.set(
         `playlists:${owner}`,
         JSON.stringify(mappedResult)
@@ -69,11 +73,13 @@ class PlaylistsService {
         throw error;
       }
       try {
-        await this._collaborationService.verifyCollaborator(
-          playlistId,
-          userId
-        );
-      } catch {
+        if (!this._collaborationService || typeof this._collaborationService.verifyCollaborator !== "function") {
+          throw new AuthorizationError("Anda tidak berhak mengakses resource ini");
+        }
+        await this._collaborationService.verifyCollaborator(playlistId, userId);
+      } catch (err) {
+        // prefer AuthorizationError if collaborator check fails, else rethrow original
+        if (err instanceof AuthorizationError) throw err;
         throw error;
       }
     }
@@ -115,6 +121,9 @@ class PlaylistsService {
   async addSongToPlaylist(playlistId, songId, userId) {
     await this.verifyPlaylistAccess(playlistId, userId);
 
+    // ensure song exists to provide clear NotFoundError instead of DB error
+    await this.verifySongExists(songId);
+
     const query = {
       text: "INSERT INTO playlist_songs (playlist_id, song_id) VALUES($1, $2)",
       values: [playlistId, songId],
@@ -131,7 +140,24 @@ class PlaylistsService {
       values: [playlistId, songId],
     };
 
-    await this._pool.query(query);
+    const result = await this._pool.query(query);
+    if (!result.rowCount) {
+      throw new NotFoundError("Lagu gagal dihapus dari playlist. Id tidak ditemukan");
+    }
+
+    // try invalidate cache for playlist owner
+    try {
+      const ownerQ = {
+        text: "SELECT owner FROM playlists WHERE id = $1",
+        values: [playlistId],
+      };
+      const res = await this._pool.query(ownerQ);
+      if (res.rows.length) {
+        await this._cacheDelete(`playlists:${res.rows[0].owner}`);
+      }
+    } catch {
+      // ignore cache invalidation errors
+    }
   }
 
   async verifyPlaylistOwner(playlistId, userId) {
@@ -157,7 +183,7 @@ class PlaylistsService {
     await this.verifyPlaylistOwner(playlistId, userId);
 
     const query = {
-      text: "DELETE FROM playlists WHERE id = $1 RETURNING id",
+      text: "DELETE FROM playlists WHERE id = $1 RETURNING id, owner",
       values: [playlistId],
     };
 

@@ -1,6 +1,4 @@
 const autoBind = require("auto-bind");
-const ClientError = require("../../exceptions/ClientError");
-const { error } = require("../../validator/exports/schema");
 
 class AlbumsHandler {
   constructor(service, validator) {
@@ -108,15 +106,20 @@ class AlbumsHandler {
 
   async getAlbumLikeByIdHandler(request, h) {
     const { id: albumId } = request.params;
-    const likes = await this._service.getAlbumLikesById(albumId);
+    const { likes, fromCache } = await this._service.getAlbumLikesById(albumId);
 
     const response = h.response({
       status: "success",
       data: {
-        likes: Number(likes),
+        likes,
       },
     });
-    response.header("X-Data-Source", "cache");
+    
+    // Set header hanya jika data berasal dari cache
+    if (fromCache) {
+      response.header("X-Data-Source", "cache");
+    }
+    
     return response;
   }
 }
