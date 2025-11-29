@@ -1,11 +1,12 @@
-const autoBind = require("auto-bind");
-const InvariantError = require("../../exceptions/InvariantError");
+const autoBind = require('auto-bind');
+const InvariantError = require('../../exceptions/InvariantError');
 
 class AlbumsHandler {
-  constructor(service, storageService, validator) {
+  constructor(service, storageService, validator, uploadsValidator) {
     this._service = service;
     this._storageService = storageService;
     this._validator = validator;
+    this._uploadsValidator = uploadsValidator; // Tambahkan ini
 
     autoBind(this);
   }
@@ -16,8 +17,8 @@ class AlbumsHandler {
     const albumId = await this._service.addAlbum({ name, year });
 
     const response = h.response({
-      status: "success",
-      message: "Album berhasil ditambahkan",
+      status: 'success',
+      message: 'Album berhasil ditambahkan',
       data: {
         albumId,
       },
@@ -30,7 +31,7 @@ class AlbumsHandler {
     const { id } = request.params;
     const album = await this._service.getAlbumById(id);
     const response = h.response({
-      status: "success",
+      status: 'success',
       data: {
         album,
       },
@@ -46,8 +47,8 @@ class AlbumsHandler {
     await this._service.editAlbumById(id, { name, year });
 
     const response = h.response({
-      status: "success",
-      message: "Album berhasil diperbarui",
+      status: 'success',
+      message: 'Album berhasil diperbarui',
     });
     response.code(200);
     return response;
@@ -58,8 +59,8 @@ class AlbumsHandler {
     await this._service.deleteAlbumById(id);
 
     const response = h.response({
-      status: "success",
-      message: "Album berhasil dihapus",
+      status: 'success',
+      message: 'Album berhasil dihapus',
     });
     return response;
   }
@@ -67,19 +68,19 @@ class AlbumsHandler {
   async postAlbumCoverByIdHandler(request, h) {
     const { id } = request.params;
     const { cover } = request.payload || {};
-    
+
     if (!cover) {
-      throw new InvariantError("File tidak ditemukan");
+      throw new InvariantError('File tidak ditemukan');
     }
-    
-    this._validator.validateImageHeaders(cover.hapi.headers);
+
+    this._uploadsValidator.validateImageHeaders(cover.hapi.headers);
     const filename = await this._storageService.writeFile(cover, cover.hapi);
     const coverUrl = `http://${process.env.HOST}:${process.env.PORT}/albums/${id}/cover/${filename}`;
     await this._service.updateAlbumCover(id, coverUrl);
-    
+
     const response = h.response({
-      status: "success",
-      message: "Cover album berhasil diunggah",
+      status: 'success',
+      message: 'Cover album berhasil diunggah',
       data: { cover: coverUrl },
     });
     response.code(201);
@@ -93,8 +94,8 @@ class AlbumsHandler {
     await this._service.addAlbumLikesById(albumId, userId);
 
     const response = h.response({
-      status: "success",
-      message: "Like album berhasil ditambahkan",
+      status: 'success',
+      message: 'Like album berhasil ditambahkan',
     });
     response.code(201);
     return response;
@@ -107,8 +108,8 @@ class AlbumsHandler {
     await this._service.deleteAlbumLikesById(albumId, userId);
 
     const response = h.response({
-      status: "success",
-      message: "Like album berhasil dihapus",
+      status: 'success',
+      message: 'Like album berhasil dihapus',
     });
     response.code(200);
     return response;
@@ -119,18 +120,18 @@ class AlbumsHandler {
     const { likes, fromCache } = await this._service.getAlbumLikesById(albumId);
 
     const response = h.response({
-      status: "success",
+      status: 'success',
       data: {
         likes,
       },
     });
     response.code(200);
-    
+
     // Set header hanya jika data berasal dari cache
     if (fromCache) {
-      response.header("X-Data-Source", "cache");
+      response.header('X-Data-Source', 'cache');
     }
-    
+
     return response;
   }
 }

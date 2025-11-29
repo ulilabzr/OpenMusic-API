@@ -2,11 +2,12 @@ const { Pool } = require('pg');
 const { nanoid } = require('nanoid');
 const autoBind = require('auto-bind');
 const InvariantError = require('../../exceptions/InvariantError');
-const NotFoundError = require('../../exceptions/NotFoundError');
 
 class PlaylistActivitiesService {
-  constructor() {
+  constructor(songsService, usersService) {
     this._pool = new Pool();
+    this._songsService = songsService;
+    this._usersService = usersService;
     autoBind(this);
   }
 
@@ -26,17 +27,41 @@ class PlaylistActivitiesService {
   }
 
   async getPlaylistActivities(playlistId) {
+    // Ambil activities dari tabel playlist_song_activities
     const query = {
-      text: `SELECT users.username, songs.title, playlist_song_activities.action, playlist_song_activities.time 
-                   FROM playlist_song_activities
-                     JOIN users ON playlist_song_activities.user_id = users.id
-                        JOIN songs ON playlist_song_activities.song_id = songs.id
-                     WHERE playlist_song_activities.playlist_id = $1
-                     ORDER BY playlist_song_activities.time ASC`,
+      text: `SELECT song_id, user_id, action, time 
+             FROM playlist_song_activities
+             WHERE playlist_id = $1
+             ORDER BY time ASC`,
       values: [playlistId],
     };
     const result = await this._pool.query(query);
-    return result.rows;
+
+    if (result.rows.length === 0) {
+      return [];
+    }
+
+    // Ambil unique song_ids dan user_ids
+    const songIds = [...new Set(result.rows.map((row) => row.song_id))];
+    const userIds = [...new Set(result.rows.map((row) => row.user_id))];
+
+    // Ambil songs dan users secara paralel menggunakan service
+    const [songs, users] = await Promise.all([
+      this._songsService.getSongsByIds(songIds),
+      this._usersService.getUsersByIds(userIds),
+    ]);
+
+    // Buat map untuk lookup cepat
+    const songsMap = new Map(songs.map((song) => [song.id, song]));
+    const usersMap = new Map(users.map((user) => [user.id, user]));
+
+    // Map activities dengan data songs dan users
+    return result.rows.map((activity) => ({
+      username: usersMap.get(activity.user_id)?.username || 'Unknown',
+      title: songsMap.get(activity.song_id)?.title || 'Unknown',
+      action: activity.action,
+      time: activity.time,
+    }));
   }
 }
 

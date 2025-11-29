@@ -1,5 +1,5 @@
 // utils/config.js
- 
+
 const config = {
   app: {
     host: process.env.HOST,
@@ -17,6 +17,6 @@ const config = {
     user: process.env.SMTP_USER,
     password: process.env.SMTP_PASSWORD,
   },
-}
- 
+};
+
 module.exports = config;

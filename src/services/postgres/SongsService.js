@@ -69,6 +69,31 @@ class SongsService {
     return result.rows;
   }
 
+  async getSongsByAlbumId(albumId) {
+    const query = {
+      text: 'SELECT id, title, performer FROM songs WHERE album_id = $1',
+      values: [albumId],
+    };
+
+    const result = await this._pool.query(query);
+    return result.rows;
+  }
+
+  async getSongsByIds(songIds) {
+    if (songIds.length === 0) {
+      return [];
+    }
+
+    const placeholders = songIds.map((_, index) => `$${index + 1}`).join(',');
+    const query = {
+      text: `SELECT id, title, performer FROM songs WHERE id IN (${placeholders})`,
+      values: songIds,
+    };
+
+    const result = await this._pool.query(query);
+    return result.rows;
+  }
+
   async getSongById(id) {
     const query = {
       text: 'SELECT * FROM songs WHERE id = $1',

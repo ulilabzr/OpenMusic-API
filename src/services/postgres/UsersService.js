@@ -87,6 +87,21 @@ class UsersService {
     const result = await this._pool.query(query);
     return result.rows;
   }
+
+  async getUsersByIds(userIds) {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    const placeholders = userIds.map((_, index) => `$${index + 1}`).join(',');
+    const query = {
+      text: `SELECT id, username, fullname FROM users WHERE id IN (${placeholders})`,
+      values: userIds,
+    };
+
+    const result = await this._pool.query(query);
+    return result.rows;
+  }
 }
 
 module.exports = UsersService;

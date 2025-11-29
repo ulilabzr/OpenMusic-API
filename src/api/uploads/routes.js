@@ -1,7 +1,6 @@
-const { request } = require("http");
-const path = require("path");
+const path = require('path');
 
-const routes = (handler) => [
+module.exports = (handler) => [
   {
     method: 'POST',
     path: '/upload/images',
@@ -13,7 +12,7 @@ const routes = (handler) => [
         output: 'stream',
       },
     },
-  },{
+  }, {
     method: 'GET',
     path: '/upload/images/{filename}',
     handler: {
@@ -23,5 +22,3 @@ const routes = (handler) => [
     },
   },
 ];
- 
-module.exports = routes;

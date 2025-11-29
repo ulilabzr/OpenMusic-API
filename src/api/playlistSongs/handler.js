@@ -5,11 +5,13 @@ class PlaylistSongsHandler {
     playlistsService,
     playlistSongsService,
     activitiesService,
+    songsService,
     validator,
   ) {
     this._playlistsService = playlistsService;
     this._playlistSongsService = playlistSongsService;
     this._activitiesService = activitiesService;
+    this._songsService = songsService;
     this._validator = validator;
     autoBind(this);
   }
@@ -22,11 +24,11 @@ class PlaylistSongsHandler {
     const { songId } = request.payload;
     const { id: credentialId } = request.auth.credentials;
 
-    // cek akses playlist (akan men-throw NotFoundError / AuthorizationError sesuai kasus)
+    // cek akses playlist
     await this._playlistsService.verifyPlaylistAccess(playlistId, credentialId);
 
-    // cek song ada (pakai PlaylistSongsService)
-    await this._playlistSongsService.verifySongExists(songId);
+    // cek song ada - gunakan songsService yang sudah di-inject (bukan private property)
+    await this._songsService.verifySongExists(songId);
 
     // insert ke playlist_songs
     await this._playlistSongsService.addSongToPlaylist(playlistId, songId);
@@ -86,10 +88,10 @@ class PlaylistSongsHandler {
     // cek akses playlist
     await this._playlistsService.verifyPlaylistAccess(playlistId, credentialId);
 
-    // cek lagu ada
-    await this._playlistSongsService.verifySongExists(songId);
+    // cek lagu ada - gunakan songsService yang sudah di-inject
+    await this._songsService.verifySongExists(songId);
 
-    // hapus lagu dari playlist (akan throw NotFoundError jika tidak ada)
+    // hapus lagu dari playlist
     await this._playlistSongsService.removeSongFromPlaylist(playlistId, songId);
 
     // catat aktivitas

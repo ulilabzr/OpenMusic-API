@@ -5,5 +5,3 @@ const ExportPlaylistsPayloadSchema = Joi.object({
 });
 
 module.exports = ExportPlaylistsPayloadSchema;
-
-

@@ -1,5 +1,4 @@
-const autoBind = require("auto-bind");
-const ClientError = require("../../exceptions/ClientError");
+const autoBind = require('auto-bind');
 
 class UploadsHandler {
   constructor(service, validator) {
@@ -16,8 +15,8 @@ class UploadsHandler {
     const filename = await this._service.writeFile(data, data.hapi);
 
     const response = h.response({
-      status: "success",
-      message: "Sampul berhasil diunggah",
+      status: 'success',
+      message: 'Sampul berhasil diunggah',
       data: {
         fileLocation: `http://${process.env.HOST}:${process.env.PORT}/upload/images/${filename}`,
       },

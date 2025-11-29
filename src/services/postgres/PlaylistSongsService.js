@@ -4,8 +4,9 @@ const autoBind = require('auto-bind');
 const NotFoundError = require('../../exceptions/NotFoundError');
 
 class PlaylistSongsService {
-  constructor() {
+  constructor(songsService) {
     this._pool = new Pool();
+    this._songsService = songsService;
     autoBind(this);
   }
 
@@ -21,18 +22,32 @@ class PlaylistSongsService {
   }
 
   async getSongsFromPlaylist(playlistId) {
+    // Ambil daftar song_id dari playlist_songs (hanya query tabel playlist_songs)
     const query = {
-      text: `
-        SELECT songs.id, songs.title, songs.performer
-        FROM songs
-        JOIN playlist_songs ON songs.id = playlist_songs.song_id
-        WHERE playlist_songs.playlist_id = $1
-      `,
+      text: 'SELECT song_id FROM playlist_songs WHERE playlist_id = $1',
       values: [playlistId],
     };
 
     const result = await this._pool.query(query);
-    return result.rows;
+    const songIds = result.rows.map((row) => row.song_id);
+
+    // Jika tidak ada songs, return array kosong
+    if (songIds.length === 0) {
+      return [];
+    }
+
+    // Ambil detail songs menggunakan SongsService secara paralel
+    const songPromises = songIds.map((songId) => this._songsService.getSongById(songId));
+    const songsData = await Promise.all(songPromises);
+
+    // Map ke format yang diinginkan
+    const songs = songsData.map((song) => ({
+      id: song.id,
+      title: song.title,
+      performer: song.performer,
+    }));
+
+    return songs;
   }
 
   async removeSongFromPlaylist(playlistId, songId) {
@@ -48,19 +63,6 @@ class PlaylistSongsService {
     }
 
     return result.rows[0].id;
-  }
-
-  async verifySongExists(songId) {
-    const query = {
-      text: 'SELECT id FROM songs WHERE id = $1',
-      values: [songId],
-    };
-
-    const result = await this._pool.query(query);
-
-    if (!result.rows.length) {
-      throw new NotFoundError('Song tidak ditemukan');
-    }
   }
 }
 

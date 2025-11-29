@@ -32,7 +32,7 @@ module.exports = (handler) => [
         allow: 'multipart/form-data',
         multipart: true,
         output: 'stream',
-        maxBytes: 512000, // 500KB limit
+        maxBytes: 512000, // 512000 Bytes limit
       },
     },
   },
@@ -42,7 +42,7 @@ module.exports = (handler) => [
     path: '/albums/{id}/cover/{filename}',
     handler: {
       file: (request) => {
-        const filename = request.params.filename;
+        const { filename } = request.params;
         return path.resolve(__dirname, '../uploads/file/images', filename);
       },
     },

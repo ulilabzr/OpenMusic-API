@@ -1,4 +1,4 @@
-const routes = (handler) => [
+module.exports = (handler) => [
   {
     method: 'GET',
     path: '/playlists/{id}/activities',
@@ -8,5 +8,3 @@ const routes = (handler) => [
     },
   },
 ];
-
-module.exports = routes;

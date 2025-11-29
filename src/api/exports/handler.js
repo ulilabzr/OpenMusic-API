@@ -1,7 +1,4 @@
-const autoBind = require("auto-bind");
-const NotFoundError = require("../../exceptions/NotFoundError");
-const AuthorizationError = require("../../exceptions/AuthorizationError");
-const PlaylistsService = require("../../services/postgres/PlaylistsService");
+const autoBind = require('auto-bind');
 
 class ExportsHandler {
   constructor(service, playlistsService, validator) {
@@ -11,6 +8,7 @@ class ExportsHandler {
 
     autoBind(this);
   }
+
   async postExportPlaylistsHandler(request, h) {
     this._validator.validateExportPlaylistsPayload(request.payload);
     const { playlistId } = request.params;
@@ -18,15 +16,15 @@ class ExportsHandler {
     const { id: credentialId } = request.auth.credentials;
 
     await this._playlistsService.verifyPlaylistAccess(playlistId, credentialId);
-    
+
     await this._service.sendMessage(
-      "export:playlists",
-      JSON.stringify({ playlistId, targetEmail })
+      'export:playlists',
+      JSON.stringify({ playlistId, targetEmail }),
     );
-    
+
     const response = h.response({
-      status: "success",
-      message: "Permintaan Anda dalam antrean",
+      status: 'success',
+      message: 'Permintaan Anda sedang kami proses',
     });
     response.code(201);
     return response;

@@ -1,4 +1,4 @@
-const routes = (handler) => [
+module.exports = (handler) => [
   {
     method: 'POST',
     path: '/collaborations',
@@ -16,5 +16,3 @@ const routes = (handler) => [
     },
   },
 ];
-
-module.exports = routes;

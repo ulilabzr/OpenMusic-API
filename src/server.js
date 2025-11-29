@@ -1,80 +1,81 @@
 // src/server.js
-require("dotenv").config();
+require('dotenv').config();
 
-const path = require("path");
-const Hapi = require("@hapi/hapi");
-const Jwt = require("@hapi/jwt");
-const Inert = require("@hapi/inert");
+const path = require('path');
+const Hapi = require('@hapi/hapi');
+const Jwt = require('@hapi/jwt');
+const Inert = require('@hapi/inert');
 
-const ClientError = require("./exceptions/ClientError");
+const ClientError = require('./exceptions/ClientError');
 
 // songs
-const songs = require("./api/songs");
-const SongsValidator = require("./validator/songs");
-const SongsService = require("./services/postgres/SongsService");
+const songs = require('./api/songs');
+const SongsValidator = require('./validator/songs');
+const SongsService = require('./services/postgres/SongsService');
 
 // albums
-const albums = require("./api/albums");
-const AlbumsValidator = require("./validator/albums");
-const AlbumsService = require("./services/postgres/AlbumsService");
+const albums = require('./api/albums');
+const AlbumsValidator = require('./validator/albums');
+const AlbumsService = require('./services/postgres/AlbumsService');
 
 // users
-const users = require("./api/users");
-const UsersValidator = require("./validator/users");
-const UsersService = require("./services/postgres/UsersService");
+const users = require('./api/users');
+const UsersValidator = require('./validator/users');
+const UsersService = require('./services/postgres/UsersService');
 
 // authentications
-const TokenManager = require("./tokenize/TokenManager");
-const authentications = require("./api/authentications");
-const AuthenticationsValidator = require("./validator/authentications");
-const AuthenticationsService = require("./services/postgres/AuthenticationsService");
+const TokenManager = require('./tokenize/TokenManager');
+const authentications = require('./api/authentications');
+const AuthenticationsValidator = require('./validator/authentications');
+const AuthenticationsService = require('./services/postgres/AuthenticationsService');
 
 // playlists
-const playlists = require("./api/playlists");
-const PlaylistsValidator = require("./validator/playlists");
-const PlaylistsService = require("./services/postgres/PlaylistsService");
+const playlists = require('./api/playlists');
+const PlaylistsValidator = require('./validator/playlists');
+const PlaylistsService = require('./services/postgres/PlaylistsService');
 
 // playlistActivities
-const playlistActivities = require("./api/playlistActivities");
-const PlaylistActivitiesService = require("./services/postgres/PlaylistActivitiesService");
+const playlistActivities = require('./api/playlistActivities');
+const PlaylistActivitiesService = require('./services/postgres/PlaylistActivitiesService');
 
 // playlistSongs
-const playlistSongs = require("./api/playlistSongs");
-const PlaylistSongsService = require("./services/postgres/PlaylistSongsService");
+const playlistSongs = require('./api/playlistSongs');
+const PlaylistSongsService = require('./services/postgres/PlaylistSongsService');
 
 // collaborations
-const collaborations = require("./api/collaborations");
-const CollaborationsValidator = require("./validator/collaborations");
-const CollaborationsService = require("./services/postgres/CollaborationsService");
+const collaborations = require('./api/collaborations');
+const CollaborationsValidator = require('./validator/collaborations');
+const CollaborationsService = require('./services/postgres/CollaborationsService');
 
 // uploads
-const uploads = require("./api/uploads");
-const UploadsValidator = require("./validator/uploads");
-const StorageService = require("./services/storage/StorageService");
+const uploads = require('./api/uploads');
+const UploadsValidator = require('./validator/uploads');
+const StorageService = require('./services/storage/StorageService');
 
 // exports
-const _exports = require("./api/exports");
-const ExportsValidator = require("./validator/exports");
-const ProducerService = require("./services/rabbitmq/ProducerService");
+const _exports = require('./api/exports');
+const ExportsValidator = require('./validator/exports');
+const ProducerService = require('./services/rabbitmq/ProducerService');
 
 // cache
-const CacheService = require("./services/redis/CacheService");
+const CacheService = require('./services/redis/CacheService');
 
 const init = async () => {
   const songsService = new SongsService();
   const cacheService = new CacheService();
-  const albumsService = new AlbumsService(cacheService);
+  const albumsService = new AlbumsService(cacheService, songsService);
   const usersService = new UsersService();
-  const playlistSongsService = new PlaylistSongsService();
+  const playlistSongsService = new PlaylistSongsService(songsService);
   const collaborationsService = new CollaborationsService(cacheService);
   const playlistsService = new PlaylistsService(
     collaborationsService,
-    cacheService
+    cacheService,
+    songsService,
   );
   const authenticationsService = new AuthenticationsService();
-  const playlistActivitiesService = new PlaylistActivitiesService();
+  const playlistActivitiesService = new PlaylistActivitiesService(songsService, usersService);
   const storageService = new StorageService(
-    path.resolve(__dirname, "api/uploads/file/images")
+    path.resolve(__dirname, 'api/uploads/file/images'),
   );
 
   const server = Hapi.server({
@@ -82,7 +83,7 @@ const init = async () => {
     host: process.env.HOST,
     routes: {
       cors: {
-        origin: ["*"],
+        origin: ['*'],
       },
     },
   });
@@ -96,7 +97,7 @@ const init = async () => {
     },
   ]);
 
-  server.auth.strategy("openmusic_jwt", "jwt", {
+  server.auth.strategy('openmusic_jwt', 'jwt', {
     keys: process.env.ACCESS_TOKEN_KEY,
     verify: {
       aud: false,
@@ -126,6 +127,7 @@ const init = async () => {
         service: albumsService,
         storageService,
         validator: AlbumsValidator,
+        uploadsValidator: UploadsValidator,
       },
     },
 
@@ -166,6 +168,7 @@ const init = async () => {
         playlistsService,
         playlistSongsService,
         activitiesService: playlistActivitiesService,
+        songsService,
         validator: PlaylistsValidator,
       },
     },
@@ -194,20 +197,20 @@ const init = async () => {
     },
   ]);
 
-  console.log("--- Registered routes ---");
+  console.log('--- Registered routes ---');
   server.table().forEach((route) => {
     console.log(`${route.method.toUpperCase()} ${route.path}`);
   });
-  console.log("--- End routes ---");
+  console.log('--- End routes ---');
 
-  server.ext("onPreResponse", (request, h) => {
+  server.ext('onPreResponse', (request, h) => {
     const { response } = request;
 
     // Handle errors
     if (response instanceof Error) {
       if (response instanceof ClientError) {
         const newResponse = h.response({
-          status: "fail",
+          status: 'fail',
           message: response.message,
         });
         const statusCode = response.statusCode || 400;
@@ -215,12 +218,12 @@ const init = async () => {
         return newResponse;
       }
 
-      // Handle Boom errors (e.g., 413 for payload too large, 401 for authentication, 404 for not found)
+      // Handle Boom errors
       if (response.isBoom) {
         const statusCode = (response.output && response.output.statusCode) || 500;
         const newResponse = h.response({
-          status: statusCode >= 400 && statusCode < 500 ? "fail" : "error",
-          message: response.message || "Terjadi kesalahan",
+          status: statusCode >= 400 && statusCode < 500 ? 'fail' : 'error',
+          message: response.message || 'Terjadi kesalahan',
         });
         newResponse.code(statusCode);
         return newResponse;
@@ -231,8 +234,8 @@ const init = async () => {
       }
 
       const newResponse = h.response({
-        status: "error",
-        message: "Maaf, terjadi kegagalan pada server kami.",
+        status: 'error',
+        message: 'Maaf, terjadi kegagalan pada server kami.',
       });
       newResponse.code(500);
       console.error(response);
